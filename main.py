@@ -1,6 +1,7 @@
 import os
 import sys
 import argparse
+import time
 from PIL import Image
 from source.bring_data import center_and_maximize_object, get_image_from_ptz_position, publish_images
 from source.object_detector import DetectorFactory
@@ -76,17 +77,29 @@ def get_argparser():
         type=str,
         default="yolo11n"
     )
+    parser.add_argument(
+        "-id",
+        "--iterdelay",
+        help="Delay in seconds between iterations (default=0.0)",
+        type=float,
+        default=60.0,
+    )
+    parser.add_argument(
+        "-conf",
+        "--confidence",
+        help="Confidence threshold for detections (0-1, default=0.1)",
+        type=float,
+        default=0.1,
+    )
 
     return parser
 
 def look_for_object(args):
-    # Parse comma-separated objects into list
     objects = [obj.strip().lower() for obj in args.objects.split(',')]
     pans = [angle for angle in range(0, 360, args.panstep)]
     tilts = [args.tilt for _ in range(len(pans))]
     zooms = [args.zoom for _ in range(len(pans))]
 
-    # Create detector using factory
     try:
         detector = DetectorFactory.create_detector(args.model)
     except ValueError as e:
@@ -94,44 +107,40 @@ def look_for_object(args):
         sys.exit(1)
     
     for iteration in range(args.iterations):
+        iteration_start_time = time.time()
+        
         for pan, tilt, zoom in zip(pans, tilts, zooms):
+            print(f"Trying PTZ: {pan} {tilt} {zoom}")
             image_path, detection = get_image_from_ptz_position(
                 args, objects, pan, tilt, zoom, detector, None
             )
-            print(f"img path: {image_path}")
-            if detection is None:  # If no objects found
-                print('<<<<<<>>>>>>---------------------<<<<<<>>>>>>')
-                print('<<<<<<>>>>>>---------------------<<<<<<>>>>>>')
-                print(f'             no objects found               ')
-                print('<<<<<<>>>>>>---------------------<<<<<<>>>>>>')
-                print('<<<<<<>>>>>>---------------------<<<<<<>>>>>>')
+            
+            if detection is None or detection['reward'] > (1 - args.confidence):
+                if image_path and os.path.exists(image_path):
+                    os.remove(image_path)
                 continue
 
-            reward = detection['reward']
-            if reward > 0.99:  # High reward means low confidence
-                print('<<<<<<>>>>>>---------------------<<<<<<>>>>>>')
-                print('<<<<<<>>>>>>---------------------<<<<<<>>>>>>')
-                print(f'             low confidence detection      ')
-                print('<<<<<<>>>>>>---------------------<<<<<<>>>>>>')
-                print('<<<<<<>>>>>>---------------------<<<<<<>>>>>>')
-                continue
-            
             label = detection['label']
             bbox = detection['bbox']
-            print('reward: ', reward)
-            print('type(reward): ', type(reward))
+            reward = detection['reward']
+            confidence = 1 - reward
+            
+            print(f'Following {label} object (confidence: {confidence:.2f})')
+            
             image = Image.open(image_path)
-            print('<<<<<<>>>>>>---------------------<<<<<<>>>>>>')
-            print('<<<<<<>>>>>>---------------------<<<<<<>>>>>>')
-            print(f'         following {label} object           ')
-            print('<<<<<<>>>>>>---------------------<<<<<<>>>>>>')
-            print('<<<<<<>>>>>>---------------------<<<<<<>>>>>>')
-            center_and_maximize_object(args, bbox, image, reward)
+            center_and_maximize_object(args, bbox, image, reward, label)
 
-            if not args.keepimages:
+            if os.path.exists(image_path):
                 os.remove(image_path)
 
         publish_images()
+        
+        iteration_time = time.time() - iteration_start_time
+        if args.iterdelay > 0:
+            remaining_delay = max(0, args.iterdelay - iteration_time)
+            if remaining_delay > 0:
+                print(f'Waiting {remaining_delay:.2f} seconds before next iteration...')
+                time.sleep(remaining_delay)
 
 def main():
     args = get_argparser().parse_args()

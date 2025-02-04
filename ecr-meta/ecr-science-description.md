@@ -14,31 +14,44 @@ The application deploys the **Florence v2** base model on the edge device. Flore
 By pushing this AI capability to the edge, the system operates continuously with minimal latency and reduced bandwidth usage—uploading only relevant snapshots rather than a constant video feed.
 
 # Arguments
-
 The application supports the following command-line arguments:
 
-- **`--keepimages` / `-ki`**  
-  Keep collected images in a persistent folder for later use. (Boolean flag)
-
 - **`--iterations` / `-it`**  
-  Number of iterations (PTZ rounds) to run. (Default: 5)
+ Number of PTZ camera rounds to run (Default: 5)
 
-- **`--object` / `-obj`**  
-  The name of the target object of interest to look for (e.g., “animal”). (Default: "animal")
+- **`--objects` / `-obj`**  
+ Objects to detect (comma-separated). Use "*" to detect all objects. (Default: "person")
 
 - **`--username` / `-un`**  
-  Username for the PTZ camera.
+ Username for the PTZ camera
 
 - **`--password` / `-pw`**  
-  Password for the PTZ camera.
+ Password for the PTZ camera
 
 - **`--cameraip` / `-ip`**  
-  IP address of the PTZ camera.
+ IP address of the PTZ camera
+
+- **`--panstep` / `-ps`**  
+ Pan step in degrees (Default: 15)
+
+- **`--tilt` / `-tv`**  
+ Tilt value in degrees (Default: 0)
+
+- **`--zoom` / `-zm`**  
+ Zoom value (Default: 1)
+
+- **`--model` / `-m`**  
+ Detection model to use: "yolo11n" or "Florence-base" (Default: "yolo11n")
+
+- **`--iterdelay` / `-id`**  
+ Delay between iterations in seconds (Default: 60.0)
+
+- **`--confidence_threshold` / `-ct`**  
+ Minimum confidence threshold for detections (0-1) (Default: 0.1)
 
 Example usage:
 ```bash
-python main.py -ki -it 5 -obj "deer" -un admin -pw secret -ip xxx.xxx.x.xx
-```
+python main.py -it 10 -obj "person,car" -un admin -pw secret -ip xxx.xxx.x.xx -m yolo11n -ct 0.1
 
 # Ontology
 

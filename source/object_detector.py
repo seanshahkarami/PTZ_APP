@@ -58,13 +58,13 @@ class YOLODetector(ObjectDetector):
         Detect objects using YOLO
         Args:
             image: Input image
-            target_objects: String or list of strings of object classes to detect
+            target_objects: String or list of strings of object classes to detect. Use "*" for all classes.
         """
         if isinstance(target_objects, str):
             target_objects = [target_objects]
         
         target_objects = [obj.lower() for obj in target_objects]
-            
+                
         if isinstance(image, Image.Image):
             image_np = np.array(image)
         else:
@@ -81,7 +81,7 @@ class YOLODetector(ObjectDetector):
             for box in boxes:
                 cls = r.names[int(box.cls[0])]
                 
-                if cls.lower() in target_objects:
+                if "*" in target_objects or cls.lower() in target_objects:
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                     bbox = [int(x1), int(y1), int(x2), int(y2)]
                     conf = float(box.conf[0])
@@ -243,4 +243,7 @@ def get_label_from_image_and_object(
             'label': label
         })
     
+    if not results:
+        return []
+        
     return results
