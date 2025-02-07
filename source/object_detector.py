@@ -192,13 +192,19 @@ class DetectorFactory:
         """
         Create and return appropriate detector based on model name
         Args:
-            model_name: Full model name (e.g., 'yolov8n', 'yolo11x', 'Florence-base')
+            model_name: Full model name (e.g., 'yolov8n', 'yolo11n', 'Florence-base', 'yolov8n-oiv7')
         """
         model_name = model_name.lower()
         
-        # Check for YOLO models
+        yolo_pattern = re.compile(r'^(?:yolov(?:8|9|10)|yolo11)[nsmlex]$')
+        yolo_oiv7_pattern = re.compile(r'^yolov8[nsmlex]-oiv7$')
+        florence_pattern = re.compile(r'^florence-(base|large)$', re.IGNORECASE)
+        
         if 'yolo' in model_name:
-            if not DetectorFactory.VALID_MODELS['yolo'].match(model_name):
+            if '-oiv7' in model_name:
+                if not yolo_oiv7_pattern.match(model_name):
+                    raise ValueError("Invalid YOLO OIV7 model name. Must be: yolov8[n,s,m,l,x]-oiv7")
+            elif not yolo_pattern.match(model_name):
                 raise ValueError(
                     "Invalid YOLO model name. Must be:\n"
                     "- yolov8[n,s,m,l,x] for YOLOv8\n"
@@ -208,18 +214,17 @@ class DetectorFactory:
                 )
             return YOLODetector(model_name)
             
-        # Check for Florence models
         elif 'florence' in model_name:
-            if not DetectorFactory.VALID_MODELS['florence'].match(model_name):
-                raise ValueError(
-                    "Invalid Florence model name. Must be: Florence-base or Florence-large"
-                )
+            if not florence_pattern.match(model_name):
+                raise ValueError("Invalid Florence model name. Must be: Florence-base or Florence-large")
             return FlorenceDetector(model_name)
             
         else:
             raise ValueError(
-                "Invalid model type. Must be either YOLO (e.g., 'yolov8n', 'yolo11n') "
-                "or Florence (e.g., 'Florence-base')"
+                "Invalid model type. Must be either:\n"
+                "- YOLO (e.g., 'yolov8n', 'yolo11n')\n"
+                "- YOLO OIV7 (e.g., 'yolov8n-oiv7')\n"
+                "- Florence (e.g., 'Florence-base')"
             )
 
 def get_label_from_image_and_object(
