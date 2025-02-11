@@ -5,7 +5,10 @@ from abc import ABC, abstractmethod
 from typing import Tuple, List, Dict, Union, Optional
 from ultralytics import YOLO
 from transformers import AutoProcessor, AutoModelForCausalLM
+import json
+import os
 import re
+
 
 class ObjectDetector(ABC):
     """Abstract base class for object detection models"""
@@ -182,20 +185,71 @@ class FlorenceDetector(ObjectDetector):
 class DetectorFactory:
     """Factory class to create appropriate object detector"""
     
-    VALID_MODELS = {
-        'yolo': re.compile(r'^(?:yolov(?:8|9|10)|yolo11)[nsmlex]$'),
-        'florence': re.compile(r'^florence-(base|large)$', re.IGNORECASE)
-    }
+    _class_mappings = None
     
+    @staticmethod 
+    def _load_class_mappings() -> dict:
+        """Load class mappings from JSON file"""
+        if DetectorFactory._class_mappings is None:
+            json_path = os.path.join(os.path.dirname(__file__), 'yolo_classes.json')
+            with open(json_path, 'r') as f:
+                DetectorFactory._class_mappings = json.load(f)
+        return DetectorFactory._class_mappings
+
     @staticmethod
-    def create_detector(model_name: str) -> ObjectDetector:
+    def get_model_classes(model_name: str) -> Set[str]:
+        """Get set of classes supported by given model"""
+        mappings = DetectorFactory._load_class_mappings()
+        
+        if '-oiv7' in model_name.lower():
+            return set(mappings['yolo_oiv7'])
+        elif 'yolo' in model_name.lower():
+            return set(mappings['standard_yolo'])
+        else:  # Florence can detect anything
+            return set()  # Empty set means it can detect anything
+
+    @staticmethod
+    def validate_objects_for_model(model_name: str, target_objects: Union[str, List[str]]) -> bool:
         """
-        Create and return appropriate detector based on model name
+        Check if specified objects can be detected by the model
+        Returns True if at least one object can be detected
+        """
+        if isinstance(target_objects, str):
+            target_objects = [obj.strip() for obj in target_objects.split(',')]
+            
+        target_objects = [obj.lower() for obj in target_objects]
+        
+        # If "*" is specified, any model can detect it
+        if "*" in target_objects:
+            return True
+            
+        # Get valid classes for the model
+        valid_classes = {cls.lower() for cls in DetectorFactory.get_model_classes(model_name)}
+        
+        # Florence can detect any object
+        if 'florence' in model_name.lower():
+            return True
+            
+        # Check if any of the target objects are in the valid classes
+        return any(obj in valid_classes for obj in target_objects)
+
+    @staticmethod
+    def create_detector(model_name: str, target_objects: Union[str, List[str]]) -> 'ObjectDetector':
+        """
+        Create and return appropriate detector based on model name and validation
         Args:
             model_name: Full model name (e.g., 'yolov8n', 'yolo11n', 'Florence-base', 'yolov8n-oiv7')
+            target_objects: Objects to detect
         """
         model_name = model_name.lower()
         
+        # First validate if the model can detect the objects
+        if not DetectorFactory.validate_objects_for_model(model_name, target_objects):
+            print(f"Warning: {model_name} cannot detect any of the specified objects.")
+            print("Falling back to Florence-base model which has broader detection capabilities.")
+            return FlorenceDetector("Florence-base")
+            
+        # If validation passes, create the requested detector
         yolo_pattern = re.compile(r'^(?:yolov(?:8|9|10)|yolo11)[nsmlex]$')
         yolo_oiv7_pattern = re.compile(r'^yolov8[nsmlex]-oiv7$')
         florence_pattern = re.compile(r'^florence-(base|large)$', re.IGNORECASE)
@@ -226,29 +280,3 @@ class DetectorFactory:
                 "- YOLO OIV7 (e.g., 'yolov8n-oiv7')\n"
                 "- Florence (e.g., 'Florence-base')"
             )
-
-def get_label_from_image_and_object(
-    image: Image.Image,
-    target_object: str,
-    detector: ObjectDetector,
-    processor=None  # Kept for backwards compatibility
-) -> List[Dict]:
-    """
-    Unified interface for object detection
-    Returns: List of dictionaries with 'reward', 'bbox', and 'label' keys
-    """
-    rewards, bboxes, labels = detector.detect(image, target_object)
-    
-    # Convert to list of dictionaries
-    results = []
-    for reward, bbox, label in zip(rewards, bboxes, labels):
-        results.append({
-            'reward': reward,
-            'bbox': bbox,
-            'label': label
-        })
-    
-    if not results:
-        return []
-        
-    return results

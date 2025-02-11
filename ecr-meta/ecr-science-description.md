@@ -46,12 +46,12 @@ The application supports the following command-line arguments:
 - **`--iterdelay` / `-id`**  
  Delay between iterations in seconds (Default: 60.0)
 
-- **`--confidence_threshold` / `-ct`**  
+- **`--confidence` / `-conf`**  
  Minimum confidence threshold for detections (0-1) (Default: 0.1)
 
 Example usage:
 ```bash
-python main.py -it 10 -obj "person,car" -un admin -pw secret -ip xxx.xxx.x.xx -m yolo11n -ct 0.1
+python main.py -it 10 -obj "person,car" -un admin -pw secret -ip xxx.xxx.x.xx -m yolo11n -conf 0.1
 
 # Ontology
 

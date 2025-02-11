@@ -101,7 +101,7 @@ def look_for_object(args):
     zooms = [args.zoom for _ in range(len(pans))]
 
     try:
-        detector = DetectorFactory.create_detector(args.model)
+        detector = DetectorFactory.create_detector(args.model, args.objects)
     except ValueError as e:
         print(f"Error creating detector: {str(e)}")
         sys.exit(1)
