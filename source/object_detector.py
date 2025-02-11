@@ -2,7 +2,7 @@ import torch
 from PIL import Image
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Tuple, List, Dict, Union, Optional
+from typing import Tuple, List, Dict, Union, Optional, Set
 from ultralytics import YOLO
 from transformers import AutoProcessor, AutoModelForCausalLM
 import json
