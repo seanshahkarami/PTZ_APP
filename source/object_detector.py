@@ -1,14 +1,13 @@
-import torch
-from PIL import Image
-import numpy as np
-from abc import ABC, abstractmethod
-from typing import Tuple, List, Dict, Union, Optional, Set
-from ultralytics import YOLO
-from transformers import AutoProcessor, AutoModelForCausalLM
 import json
 import os
 import re
-
+import torch
+import numpy as np
+from typing import Union, List, Set, Tuple, Dict
+from abc import ABC, abstractmethod
+from PIL import Image
+from ultralytics import YOLO
+from transformers import AutoProcessor, AutoModelForCausalLM
 
 class ObjectDetector(ABC):
     """Abstract base class for object detection models"""
@@ -61,13 +60,13 @@ class YOLODetector(ObjectDetector):
         Detect objects using YOLO
         Args:
             image: Input image
-            target_objects: String or list of strings of object classes to detect. Use "*" for all classes.
+            target_objects: String or list of strings of object classes to detect
         """
         if isinstance(target_objects, str):
             target_objects = [target_objects]
         
         target_objects = [obj.lower() for obj in target_objects]
-                
+            
         if isinstance(image, Image.Image):
             image_np = np.array(image)
         else:
@@ -197,7 +196,7 @@ class DetectorFactory:
         return DetectorFactory._class_mappings
 
     @staticmethod
-    def get_model_classes(model_name: str) -> Set[str]:
+    def get_model_classes(model_name: str) -> set:
         """Get set of classes supported by given model"""
         mappings = DetectorFactory._load_class_mappings()
         
@@ -280,3 +279,29 @@ class DetectorFactory:
                 "- YOLO OIV7 (e.g., 'yolov8n-oiv7')\n"
                 "- Florence (e.g., 'Florence-base')"
             )
+
+def get_label_from_image_and_object(
+    image: Image.Image,
+    target_object: str,
+    detector: ObjectDetector,
+    processor=None  # Kept for backwards compatibility
+) -> List[Dict]:
+    """
+    Unified interface for object detection
+    Returns: List of dictionaries with 'reward', 'bbox', and 'label' keys
+    """
+    rewards, bboxes, labels = detector.detect(image, target_object)
+    
+    # Convert to list of dictionaries
+    results = []
+    for reward, bbox, label in zip(rewards, bboxes, labels):
+        results.append({
+            'reward': reward,
+            'bbox': bbox,
+            'label': label
+        })
+    
+    if not results:
+        return []
+        
+    return results
